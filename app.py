@@ -4,39 +4,50 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# 페이지 설정 (모바일 최적화)
-st.set_page_config(page_title="Abisso Project", layout="centered")
+# 1. 페이지 설정 (다크 모드 및 레이아웃)
+st.set_page_config(page_title="Abisso Premium Engine", layout="wide")
 
-st.title("📱 애비쏘 모바일 엔진")
-st.subheader("실시간 분산 투자 현황")
+# 커스텀 CSS: 블랙 & 골드 테마 적용
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; color: #ffffff; }
+    .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; border: 1px solid #4b5563; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# [세션 상태 초기화] 앱이 새로고침되어도 자산 데이터를 유지합니다.
-if 'total_balance' not in st.session_state:
-    st.session_state.total_balance = 1000000 # 기본 100만 원
+st.title("💎 ABISSO Premium Asset Engine")
+st.markdown("---")
 
-# 사이드바 설정 (오빠의 맞춤 전략 존)
-st.sidebar.header("⚙️ 전략 세팅")
-target_coins = st.sidebar.multiselect("감시 종목 (최대 3개)", ["BTC", "XRP", "ETH", "ZIL", "SOL"], default=["BTC", "XRP", "ETH"])
-k_val = st.sidebar.slider("K값 (진입장벽)", 0.1, 1.0, 0.5)
-stop_loss = st.sidebar.slider("손절선 (%)", -5.0, -0.1, -1.0)
+# 2. 사이드바: 오빠의 자산 정보 입력
+st.sidebar.header("💰 나의 투자 설정")
+my_coin = st.sidebar.selectbox("보유 종목", ["BTC", "XRP", "ETH"])
+avg_price = st.sidebar.number_input("나의 평단가 (원)", value=0, step=100)
+my_quantity = st.sidebar.number_input("보유 수량", value=0.0, format="%.4f")
 
-# 메인 화면 - 실시간 지표
-cols = st.columns(len(target_coins))
-for i, coin in enumerate(target_coins):
-    price = pybithumb.get_current_price(coin)
-    with cols[i]:
-        st.metric(label=coin, value=f"{price:,}원", delta="실시간 추적 중")
+# 3. 실시간 데이터 계산
+curr_price = pybithumb.get_current_price(my_coin)
+if avg_price > 0 and my_quantity > 0:
+    total_buy = avg_price * my_quantity
+    total_now = curr_price * my_quantity
+    profit_rate = ((curr_price - avg_price) / avg_price) * 100
+    profit_krw = total_now - total_buy
+else:
+    profit_rate = 0.0
+    profit_krw = 0
 
-# [핵심] 실시간 자산 그래프 시각화
-st.write("---")
-st.write("📈 자산 흐름 리포트")
-# 가상의 수익률 그래프 예시 (오빠의 성적표 시각화)
-chart_data = pd.DataFrame({
-    '시간': [datetime.now().strftime('%H:%M:%S') for _ in range(10)],
-    '수익률': [0, 0.2, 0.5, 0.3, 0.7, 1.2, 1.0, 1.5, 1.8, 2.1]
-})
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=chart_data['시간'], y=chart_data['수익률'], mode='lines+markers', name='수익률'))
+# 4. 상단 메트릭 배치
+col1, col2, col3 = st.columns(3)
+col1.metric("현재가", f"{curr_price:,} 원", f"{my_coin}")
+col2.metric("실시간 수익률", f"{profit_rate:.2f}%", f"{profit_krw:+,} 원")
+col3.metric("평가 금액", f"{total_now:,} 원")
+
+# 5. 전문가용 캔들스틱 차트 (가상 데이터)
+st.write("### 📊 마켓 분석 리포트")
+df = pybithumb.get_ohlcv(my_coin, interval="minute1").tail(30)
+fig = go.Figure(data=[go.Candlestick(x=df.index,
+                open=df['open'], high=df['high'],
+                low=df['low'], close=df['close'])])
+fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False)
 st.plotly_chart(fig, use_container_width=True)
 
-st.success("📡 엔진이 정상 작동 중입니다. 조건 충족 시 알림을 보냅니다.")
+st.sidebar.success("엔진 최적화 완료")
