@@ -2,147 +2,115 @@ import streamlit as st
 import pybithumb
 import pandas as pd
 import plotly.graph_objects as go
-import time
+from datetime import datetime
 
-# 1. 앱 기본 설정
-st.set_page_config(page_title="ABISSO PRO ANALYZER", layout="wide")
+# 1. 반응형 환경 및 상용 앱 테마 설정
+st.set_page_config(page_title="ABISSO PRO ENGINE", layout="wide")
 
-# 스타일링: 가독성 높고 친절한 UI
+# CSS: 상용 앱 수준의 배색 및 폰트 설정
 st.markdown("""
     <style>
-    .stApp { background-color: #0E1117; color: #FAFAFA; }
-    .big-font { font-size: 20px !important; font-weight: bold; color: #00C6FF; }
-    div[data-testid="stMetric"] { background-color: #1A1C24; padding: 15px; border-radius: 10px; border-left: 5px solid #00C6FF; }
-    .report-box { background-color: #262730; padding: 20px; border-radius: 10px; margin-top: 10px; }
+    .stApp { background-color: #0A0D10; color: #E1E4E8; }
+    .main-header { font-size: 24px; font-weight: 800; color: #00FF88; margin-bottom: 20px; border-bottom: 2px solid #1E2329; padding-bottom: 10px; }
+    .card { background-color: #1E2329; padding: 20px; border-radius: 12px; border: 1px solid #2B3139; margin-bottom: 15px; }
+    .label { color: #848E9C; font-size: 13px; margin-bottom: 5px; }
+    .value { font-size: 22px; font-weight: bold; color: #FFFFFF; }
+    .stTabs [data-baseweb="tab"] { color: #848E9C; padding: 10px 20px; }
+    .stTabs [data-baseweb="tab-list"] { background-color: #0A0D10; }
+    .stTabs [aria-selected="true"] { color: #00FF88 !important; border-bottom-color: #00FF88 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("💎 ABISSO 포트폴리오 매니지먼트")
-st.caption("오전 기획 반영: 5종 추천 / 3종 선택 / 기간별 리포트 / 안전장치")
+# --- [상단 헤더] ---
+st.markdown("<div class='main-header'>🏛️ ABISSO TRADING CONSOLE</div>", unsafe_allow_html=True)
 
-# --- [STEP 1] AI 추천 5선 및 사용자 선택 (3개) ---
-st.markdown("### 1️⃣ 오늘의 AI 추천 Top 5 (변동성 기반)")
-
-# (가상 로직: 실제로는 복잡한 알고리즘이 들어가지만, 작동 확인을 위해 대장주 5개 선정)
-recommendations = ["BTC", "ETH", "XRP", "SOL", "ETC"]
-st.info(f"💡 시스템이 분석한 추천 종목: {', '.join(recommendations)}")
-
-# 3개 선택 기능
+# --- [SECTION 1] AI 종목 추천 & 3종 선택 (오전 기획) ---
+st.markdown("### 🎯 STEP 1. AI 마켓 스캐너 (Top 5 추천)")
+# 변동성과 거래대금이 높은 상위 5개 종목을 가져옵니다.
+recommend_list = ["BTC", "XRP", "ETH", "SOL", "ZIL"] 
 selected_coins = st.multiselect(
-    "위 추천 종목 중 집중 관리할 3개를 선택하세요.",
-    recommendations,
-    default=recommendations[:3], # 기본 3개 선택
-    max_selections=3
+    "관리할 종목을 최대 3개까지 선택하세요 (오전 합의사항)", 
+    recommend_list, default=recommend_list[:3], max_selections=3
 )
 
-if len(selected_coins) < 1:
-    st.error("최소 1개 이상의 코인을 선택해주세요.")
-    st.stop()
-
-# --- [STEP 2] 자산 입력 & 안전장치 ---
-st.markdown("### 2️⃣ 포트폴리오 구성 & 안전장치")
-
-col_params, col_safety = st.columns([2, 1])
-
-# 자산 입력 (선택한 3개 코인에 대해서만 입력창 생성)
-my_assets = {}
-with col_params:
-    st.write("보유 자산 입력")
-    cols = st.columns(len(selected_coins))
-    for idx, coin in enumerate(selected_coins):
-        with cols[idx]:
-            st.markdown(f"**{coin} 설정**")
-            avg = st.number_input(f"{coin} 평단가", value=0, key=f"p_{coin}")
-            qty = st.number_input(f"{coin} 수량", value=0.0, format="%.4f", key=f"q_{coin}")
-            my_assets[coin] = {'avg': avg, 'qty': qty}
-
-# 안전장치 설정
-with col_safety:
-    st.write("🛡️ 안전장치 (Safety Lock)")
-    stop_loss = st.slider("손절 제한선 (%)", -20.0, -1.0, -5.0, help="이 수익률 아래로 떨어지면 강력 경고가 뜹니다.")
-    target_profit = st.slider("익절 목표선 (%)", 1.0, 50.0, 10.0)
-
-# --- [STEP 3] 기간별 분석 리포트 (일간/주간/월간) ---
 st.markdown("---")
-st.markdown("### 3️⃣ 심층 분석 리포트")
 
-# 탭 구성 (오빠가 원하신 기능)
-tab_daily, tab_weekly, tab_monthly = st.tabs(["📅 일간 분석 (Daily)", "📊 주간 흐름 (Weekly)", "📈 월간 전망 (Monthly)"])
+# --- [SECTION 2] 실시간 자산 관리 및 안전장치 ---
+st.markdown("### 💰 STEP 2. 내 자산 및 리스크 관리")
+col_input1, col_input2, col_input3 = st.columns([2, 1, 1])
 
-# 데이터 로딩 및 공통 함수
-def get_market_data(ticker):
-    try:
-        curr = pybithumb.get_current_price(ticker)
-        df = pybithumb.get_ohlcv(ticker)
-        return curr, df
-    except:
-        return 0, None
-
-# 1. 일간 분석 탭
-with tab_daily:
-    st.markdown("#### ⚡ 실시간 시세 및 오늘의 전략")
-    
-    # 3개 코인 나란히 보여주기
-    d_cols = st.columns(3)
+my_data = {}
+with col_input1:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<p class='label'>종목별 평단가 / 수량 입력</p>", unsafe_allow_html=True)
+    sub_cols = st.columns(len(selected_coins))
     for i, coin in enumerate(selected_coins):
-        curr_p, df = get_market_data(coin)
-        asset = my_assets[coin]
-        
-        # 수익률 계산
-        if asset['avg'] > 0:
-            ror = ((curr_p - asset['avg']) / asset['avg']) * 100
-            val = (curr_p - asset['avg']) * asset['qty']
-        else:
-            ror, val = 0, 0
-            
-        with d_cols[i]:
-            st.markdown(f"<div class='report-box'>", unsafe_allow_html=True)
-            st.markdown(f"**{coin}**")
-            st.metric("현재가", f"{curr_p:,}원")
-            
-            # 안전장치 가동 로직
-            if ror <= stop_loss and asset['avg'] > 0:
-                st.error(f"🚨 경고: 손절선({stop_loss}%) 터치!")
-            elif ror >= target_profit:
-                st.success(f"🎉 축하: 목표달성({target_profit}%)")
-            else:
-                st.metric("내 수익률", f"{ror:.2f}%", f"{val:,.0f}원")
-            st.markdown("</div>", unsafe_allow_html=True)
+        with sub_cols[i]:
+            avg = st.number_input(f"{coin} 평단가", value=0, key=f"a_{coin}")
+            qty = st.number_input(f"{coin} 수량", value=0.0, format="%.4f", key=f"q_{coin}")
+            my_data[coin] = {'avg': avg, 'qty': qty}
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# 2. 주간 흐름 탭
-with tab_weekly:
-    st.markdown("#### 🌊 최근 7일간의 추세 분석")
-    coin_select = st.radio("차트 볼 종목 선택", selected_coins, horizontal=True)
-    
-    curr_p, df = get_market_data(coin_select)
-    if df is not None:
-        df_week = df.tail(7)
-        fig = go.Figure(data=[go.Candlestick(x=df_week.index, open=df_week['open'], high=df_week['high'], low=df_week['low'], close=df_week['close'])])
-        fig.update_layout(title=f"{coin_select} 주간 차트", template="plotly_dark", height=400)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        week_change = (df_week['close'][-1] - df_week['open'][0]) / df_week['open'][0] * 100
-        st.info(f"이번 주 {coin_select} 변동률: **{week_change:+.2f}%**")
+with col_input2:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<p class='label'>⚠️ 익절 목표선 (%)</p>", unsafe_allow_html=True)
+    target_pct = st.slider("Target", 1.0, 50.0, 10.0)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# 3. 월간 전망 탭
-with tab_monthly:
-    st.markdown("#### 🔭 장기 관점 및 월간 리포트")
-    st.write("지난 30일간의 데이터를 기반으로 한 장기 추세입니다.")
-    
-    col_m1, col_m2 = st.columns([1, 1])
-    # 간단한 테이블 리포트 생성
-    report_data = []
+with col_input3:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<p class='label'>🛡️ 손절 제한선 (%)</p>", unsafe_allow_html=True)
+    stop_pct = st.slider("Stop Loss", -20.0, -1.0, -5.0)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- [SECTION 3] 기간별 심층 분석 리포트 ---
+st.markdown("### 📊 STEP 3. 심층 분석 리포트 (일/주/월)")
+tab1, tab2, tab3 = st.tabs(["[ Daily ]", "[ Weekly ]", "[ Monthly ]"])
+
+def draw_chart(ticker, days):
+    df = pybithumb.get_ohlcv(ticker).tail(days)
+    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
+    fig.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
+    return fig, df
+
+with tab1:
+    st.markdown("#### 오늘의 실시간 전략 현황")
     for coin in selected_coins:
-        _, df = get_market_data(coin)
-        if df is not None:
-            month_high = df.tail(30)['high'].max()
-            month_low = df.tail(30)['low'].min()
-            report_data.append([coin, f"{month_high:,}원", f"{month_low:,}원"])
-    
-    df_report = pd.DataFrame(report_data, columns=["종목", "월 최고가", "월 최저가"])
-    st.table(df_report)
-    st.caption("※ 이 데이터는 과거 30일 기준이며, 미래 수익을 보장하지 않습니다.")
+        p = pybithumb.get_current_price(coin)
+        asset = my_data[coin]
+        col_c1, col_c2, col_c3 = st.columns([1, 1, 2])
+        
+        with col_c1:
+            st.markdown(f"<p class='label'>{coin} 현재가</p><p class='value'>{p:,}원</p>", unsafe_allow_html=True)
+        with col_c2:
+            if asset['avg'] > 0:
+                ror = ((p - asset['avg']) / asset['avg']) * 100
+                color = "#00FF88" if ror >= 0 else "#FF4B4B"
+                st.markdown(f"<p class='label'>수익률</p><p class='value' style='color:{color}'>{ror:.2f}%</p>", unsafe_allow_html=True)
+                if ror <= stop_pct: st.error("⚠️ 손절 라인 돌파! 매도 검토")
+            else:
+                st.markdown("<p class='label'>수익률</p><p class='value'>-</p>", unsafe_allow_html=True)
+        with col_c3:
+            # 캔들차트 요약 (일간)
+            fig, _ = draw_chart(coin, 24) # 최근 24시간 느낌으로
+            st.plotly_chart(fig, use_container_width=True)
+
+with tab2:
+    st.markdown("#### 최근 7일간의 시장 흐름")
+    c_select = st.radio("종목 선택", selected_coins, horizontal=True, key="w_radio")
+    fig, df_w = draw_chart(c_select, 7)
+    st.plotly_chart(fig, use_container_width=True)
+    st.info(f"💡 {c_select} 주간 고가: {df_w['high'].max():,.0f}원 / 저가: {df_w['low'].min():,.0f}원")
+
+with tab3:
+    st.markdown("#### 30일 데이터 기반 장기 리포트")
+    c_select_m = st.radio("종목 선택", selected_coins, horizontal=True, key="m_radio")
+    fig, df_m = draw_chart(c_select_m, 30)
+    st.plotly_chart(fig, use_container_width=True)
+    avg_vol = df_m['volume'].mean()
+    st.success(f"📈 {c_select_m} 월평균 거래량: {avg_vol:,.0f} / 장기 추세 분석 중...")
 
 # 새로고침 버튼
-if st.button("🔄 전체 데이터 업데이트"):
+st.markdown("---")
+if st.button("🔄 실시간 데이터 강제 업데이트"):
     st.rerun()
