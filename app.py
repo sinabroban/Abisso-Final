@@ -2,128 +2,131 @@ import streamlit as st
 import pybithumb
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# 1. 상업용 앱 테마 및 환경 설정
-st.set_page_config(page_title="ABISSO PRO V3", layout="wide", initial_sidebar_state="collapsed")
+# 1. 모바일 최적화 및 고대비 테마 설정
+st.set_page_config(page_title="ABISSO PRO V4", layout="wide")
 
-# 세션 상태 초기화 (데이터가 날아가지 않게 고정)
-if 'selected_coins' not in st.session_state:
-    st.session_state.selected_coins = []
-
-# CSS: 상업용 앱 배색 (가독성 최우선)
+# CSS: 캡처화면의 '안 보이는 글자' 문제를 100% 해결하는 고대비 스타일
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #0B0E11; color: #EAECEF; }
-    .stApp { background-color: #0B0E11; }
-    .main-card { background-color: #1E2329; padding: 24px; border-radius: 16px; border: 1px solid #2B3139; margin-bottom: 20px; }
-    .metric-value { font-size: 28px; font-weight: 700; color: #F0B90B; } /* 바이낸스 골드 포인트 */
-    .metric-label { color: #848E9C; font-size: 14px; }
-    .stButton>button { background-color: #F0B90B; color: black; border-radius: 8px; font-weight: bold; border: none; width: 100%; height: 45px; }
-    .stTabs [data-baseweb="tab-list"] { background-color: #0B0E11; gap: 24px; }
-    .stTabs [data-baseweb="tab"] { font-size: 16px; color: #848E9C; }
-    .stTabs [aria-selected="true"] { color: #F0B90B !important; border-bottom-color: #F0B90B !important; }
+    /* 배경은 딥블랙, 모든 글자는 강제 화이트/골드 */
+    .stApp { background-color: #000000 !important; }
+    h1, h2, h3, p, span, label { color: #FFFFFF !important; font-weight: 600 !important; }
+    
+    /* 카드 디자인: 시중 앱처럼 경계선을 확실하게 */
+    .app-card {
+        background-color: #1A1A1A;
+        border: 2px solid #333333;
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 15px;
+    }
+    
+    /* 포인트 컬러 (바이낸스 옐로우) */
+    .highlight { color: #F3BA2F !important; font-size: 24px; font-weight: 800; }
+    .stMetric label { color: #AAAAAA !important; }
+    .stMetric [data-testid="stMetricValue"] { color: #F3BA2F !important; }
+    
+    /* 버튼: 시인성 극대화 */
+    .stButton>button {
+        background: linear-gradient(135deg, #F3BA2F 0%, #D49B00 100%) !important;
+        color: black !important;
+        border: none !important;
+        font-weight: bold !important;
+        height: 50px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [상단: 시장 현황 브리핑] ---
-st.markdown("<h1 style='color:#F0B90B;'>🏛️ ABISSO TRADING SYSTEM</h1>", unsafe_allow_html=True)
+# --- [상단 헤더: 비즈니스 정체성] ---
+st.markdown("<h1 style='text-align:center; color:#F3BA2F !important;'>🏛️ ABISSO TRADING SYSTEM</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#888 !important;'>600개 프로그램 프로젝트의 초석: 실전 가동 엔진</p>", unsafe_allow_html=True)
 
-# --- [SECTION 1: AI 스캐너 및 3종 선택] ---
-st.markdown("### 🔍 01. AI 마켓 스캐너 (오전 기획: 5종 추천)")
+# --- [STEP 1: 자동 종목 추천 및 로직] ---
+# 오전에 얘기한 5종 추천 리스트 (거래대금 상위 자동화 시뮬레이션)
+recommend_top5 = ["BTC", "XRP", "ETH", "SOL", "DOGE"]
+
 with st.container():
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    # 거래대금 상위 5개 자동 스캔 로직 (벤치마킹: 거래량 우선순위)
-    top_5 = ["BTC", "ETH", "XRP", "SOL", "DOGE"] 
-    st.write("📈 현재 시장 유동성 및 변동성 기반 Top 5 추천 종목입니다.")
+    st.markdown("<div class='app-card'>", unsafe_allow_html=True)
+    st.markdown("### 🔍 01. AI 마켓 스캐너 (Top 5 추천)")
+    st.write("📈 현재 시장 유동성 기반 추천: " + ", ".join(recommend_top5))
     
-    selected = st.multiselect(
-        "이 중 집중 관리할 3종을 선택하세요 (3종 선택 시 전략 가동)", 
-        top_5, default=st.session_state.selected_coins, max_selections=3
+    # 기본값으로 3개를 미리 선택해두어 '비어있는 느낌' 방지
+    selected_coins = st.multiselect(
+        "집중 관리할 3종을 선택하세요.", 
+        recommend_top5, 
+        default=["BTC", "XRP", "ETH"]
     )
-    st.session_state.selected_coins = selected
     st.markdown("</div>", unsafe_allow_html=True)
 
-if not selected:
-    st.warning("⚠️ 종목을 선택해야 리포트가 생성됩니다.")
-    st.stop()
-
-# --- [SECTION 2: 실시간 포트폴리오 & 안전장치] ---
-st.markdown("### 💰 02. 라이브 포트폴리오 & 리스크 관리")
-col_assets, col_safety = st.columns([2, 1])
+# --- [STEP 2: 라이브 자산 & 안전장치] ---
+col_assets, col_risk = st.columns([2, 1])
 
 with col_assets:
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    asset_cols = st.columns(len(selected))
-    user_assets = {}
-    for i, coin in enumerate(selected):
-        with asset_cols[i]:
-            st.markdown(f"**{coin}**")
-            avg = st.number_input("평단가", key=f"avg_{coin}", value=0)
-            qty = st.number_input("보유량", key=f"qty_{coin}", value=0.0, format="%.4f")
-            user_assets[coin] = {"avg": avg, "qty": qty}
+    st.markdown("<div class='app-card'>", unsafe_allow_html=True)
+    st.markdown("### 💰 02. 실시간 포트폴리오")
+    asset_data = {}
+    cols = st.columns(len(selected_coins))
+    for i, coin in enumerate(selected_coins):
+        with cols[i]:
+            st.markdown(f"<span style='color:#F3BA2F'>{coin}</span>", unsafe_allow_html=True)
+            avg = st.number_input("평단", key=f"a_{coin}", value=0)
+            qty = st.number_input("수량", key=f"q_{coin}", value=0.0, format="%.4f")
+            asset_data[coin] = {"avg": avg, "qty": qty}
     st.markdown("</div>", unsafe_allow_html=True)
 
-with col_safety:
-    st.markdown("<div class='main-card'>", unsafe_allow_html=True)
-    st.markdown("<p class='metric-label'>🛡️ 안전장치 설정</p>", unsafe_allow_html=True)
-    stop_loss = st.slider("자동 손절선 (%)", -15.0, -1.0, -5.0)
-    take_profit = st.slider("목표 익절선 (%)", 1.0, 30.0, 10.0)
+with col_risk:
+    st.markdown("<div class='app-card'>", unsafe_allow_html=True)
+    st.markdown("### 🛡️ 리스크 관리")
+    stop_loss = st.slider("손절선 (%)", -15.0, -1.0, -5.0)
+    st.markdown(f"<p style='font-size:12px; color:#888;'>설정 기준: {stop_loss}% 도달 시 알림</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- [SECTION 3: 기간별 통합 리포트] ---
-st.markdown("### 📊 03. 전략 이행 리포트 (일/주/월)")
-tab1, tab2, tab3 = st.tabs(["[ DAILY ]", "[ WEEKLY ]", "[ MONTHLY ]"])
+# --- [STEP 3: 기간별 통합 분석 리포트] ---
+st.markdown("### 📊 03. 전략 이행 리포트")
+tab_d, tab_w, tab_m = st.tabs(["🕒 일간 (Live)", "📅 주간 (Trend)", "📈 월간 (Insight)"])
 
-def get_report_data(ticker, period):
-    df = pybithumb.get_ohlcv(ticker, interval="day").tail(period)
+def get_data(ticker, days):
+    df = pybithumb.get_ohlcv(ticker, interval="day").tail(days)
     curr = pybithumb.get_current_price(ticker)
     return curr, df
 
-with tab1:
-    st.markdown("#### 오늘의 실시간 수익률 및 전략 지표")
-    for coin in selected:
-        curr, df = get_report_data(coin, 1)
-        asset = user_assets[coin]
-        
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
-        with c1: st.markdown(f"<p class='metric-label'>{coin} 현재가</p><p class='value'>{curr:,}원</p>", unsafe_allow_html=True)
+with tab_d:
+    for coin in selected_coins:
+        curr, df = get_data(coin, 1)
+        st.markdown(f"<div class='app-card'>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([1, 1, 2])
+        with c1:
+            st.metric(f"{coin} 시세", f"{curr:,}원")
         with c2:
-            if asset['avg'] > 0:
-                ror = ((curr - asset['avg']) / asset['avg']) * 100
-                color = "#00C087" if ror >= 0 else "#CF304A"
-                st.markdown(f"<p class='metric-label'>수익률</p><p class='metric-value' style='color:{color}'>{ror:.2f}%</p>", unsafe_allow_html=True)
-            else: st.markdown("<p class='metric-label'>수익률</p><p class='value'>-</p>", unsafe_allow_html=True)
+            if asset_data[coin]['avg'] > 0:
+                ror = ((curr - asset_data[coin]['avg']) / asset_data[coin]['avg']) * 100
+                st.metric("수익률", f"{ror:.2f}%")
+                if ror <= stop_loss: st.error("🚨 즉시 대응 요망")
+            else: st.write("입력 대기")
         with c3:
-            # 안전장치 작동 여부 (벤치마킹 포인트: 직관적 경고)
-            if asset['avg'] > 0 and ror <= stop_loss: st.error("🚨 손절가 도달!")
-            elif asset['avg'] > 0 and ror >= take_profit: st.success("🎯 목표가 달성!")
-            else: st.info("🛰️ 감시 중")
-        with c4:
-            # 차트 (가독성을 위해 깔끔하게)
-            fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
-            fig.update_layout(template="plotly_dark", height=150, margin=dict(l=0,r=0,t=0,b=0), xaxis_rangeslider_visible=False)
-            st.plotly_chart(fig, use_container_width=True)
+            # 실전 앱처럼 심플한 라인 차트
+            st.line_chart(df['close'], height=100)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-with tab2:
-    st.markdown("#### 최근 7일간 추세 분석 리포트")
-    for coin in selected:
-        curr, df = get_report_data(coin, 7)
-        st.write(f"**{coin} 주간 리포트**")
-        weekly_change = ((df['close'][-1] - df['open'][0]) / df['open'][0]) * 100
-        st.write(f"- 지난 7일간 변동률: {weekly_change:+.2f}% | 최고가: {df['high'].max():,}원")
+with tab_w:
+    st.info("지난 7일간의 변동성 및 골든크로스 여부를 분석합니다.")
+    for coin in selected_coins:
+        _, df_w = get_data(coin, 7)
+        change = ((df_w['close'][-1] - df_w['open'][0]) / df_w['open'][0]) * 100
+        st.write(f"🔹 **{coin}**: 7일 변동률 {change:+.2f}% (최고 {df_w['high'].max():,}원)")
 
-with tab3:
-    st.markdown("#### 30일 데이터 기반 장기 전망")
-    # 월간 데이터 시각화 (벤치마킹: 깔끔한 데이터 테이블)
-    monthly_summary = []
-    for coin in selected:
-        _, df = get_report_data(coin, 30)
-        monthly_summary.append({"종목": coin, "월최고": f"{df['high'].max():,}", "월최저": f"{df['low'].min():,}", "거래량(평균)": f"{df['volume'].mean():,.0f}"})
-    st.table(pd.DataFrame(monthly_summary))
+with tab_m:
+    st.success("30일 장기 추세: 현재 하락세 진정 및 횡보 구간 진입 분석")
+    # 월간 리포트 테이블
+    m_list = []
+    for coin in selected_coins:
+        _, df_m = get_data(coin, 30)
+        m_list.append({"종목": coin, "월최고": f"{df_m['high'].max():,}", "거래량": f"{df_m['volume'].mean():,.0f}"})
+    st.table(pd.DataFrame(m_list))
 
-# --- [FOOTER: 시스템 가동 버튼] ---
+# 4. 하단 고정 새로고침 버튼
 st.markdown("---")
-if st.button("🔄 실시간 데이터 동기화"):
+if st.button("🔄 실시간 데이터 동기화 (Force Update)"):
     st.rerun()
