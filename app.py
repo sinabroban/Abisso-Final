@@ -3,75 +3,69 @@ import pybithumb
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
+import time
 
-# 1. 페이지 설정 및 다크 테마
-st.set_page_config(page_title="ABISSO PREMIUM", layout="wide")
+# 1. 앱 설정 및 모바일 최적화 레이아웃
+st.set_page_config(page_title="ABISSO PRO ENGINE", layout="centered")
 
-# 배경색 및 폰트 스타일 제어 (블랙 & 골드 포인트)
+# CSS: 실제 금융 앱처럼 묵직하고 깔끔한 디자인
 st.markdown("""
     <style>
-    .main { background-color: #000000; color: #E5E7EB; }
-    div[data-testid="stMetricValue"] { color: #F3F4F6; font-size: 24px; font-weight: bold; }
-    div[data-testid="stMetricDelta"] { font-size: 16px; }
-    .stButton>button { width: 100%; border-radius: 5px; background-color: #374151; color: white; }
+    .stApp { background-color: #050505; }
+    .main-card { background-color: #1a1a1a; padding: 20px; border-radius: 15px; border-left: 5px solid #FFD700; }
+    div[data-testid="stMetric"] { background-color: #111; padding: 15px; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("💎 ABISSO ASSET ENGINE")
-st.caption(f"접속 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.title("📱 ABISSO 실전 자산 엔진")
 
-# 2. 사이드바: 오빠의 실질적인 자산 설정
-st.sidebar.header("📊 MY PORTFOLIO")
-target_coin = st.sidebar.selectbox("종목 선택", ["BTC", "XRP", "ETH", "SOL", "ZIL"], index=0)
-avg_buy_price = st.sidebar.number_input("나의 매수 평단가 (원)", value=0, step=100)
-my_holdings = st.sidebar.number_input("내가 가진 수량", value=0.0, format="%.4f")
+# 2. 자산 입력 섹션 (세션 상태 유지)
+with st.expander("💰 나의 실전 자산 설정", expanded=True):
+    col_in1, col_in2 = st.columns(2)
+    with col_in1:
+        avg_price = st.number_input("평단가 (원)", value=0, step=1, help="실제 매수한 평균 단가를 입력하세요.")
+    with col_in2:
+        amount = st.number_input("보유수량", value=0.0, format="%.4f")
+    
+    target_coin = st.selectbox("추적 종목", ["BTC", "XRP", "ETH", "SOL"], index=0)
 
-# 3. 데이터 로드 및 에러 방지 로직
+# 3. 실시간 데이터 호출 (안전 로직 적용)
+def get_safe_price(ticker):
+    try:
+        p = pybithumb.get_current_price(ticker)
+        return p if p is not None else 0
+    except:
+        return 0
+
+curr_p = get_safe_price(target_coin)
+
+# 4. 실전 수익 계산
+if avg_price > 0 and amount > 0:
+    buy_total = avg_price * amount
+    now_total = curr_p * amount
+    profit_pct = ((curr_p - avg_price) / avg_price) * 100
+    profit_krw = now_total - buy_total
+else:
+    now_total, profit_pct, profit_krw = 0, 0.0, 0
+
+# 5. 메인 대시보드
+st.markdown(f"### {target_coin} 투자 현황")
+c1, c2 = st.columns(2)
+c1.metric("현재가", f"{curr_p:,}원")
+c2.metric("수익률", f"{profit_pct:.2f}%", f"{profit_krw:+,}원")
+
+st.metric("총 평가금액", f"{now_total:,.0f}원")
+
+# 6. 실시간 차트 (데이터 로딩 최적화)
+st.write("---")
+st.write("📈 실시간 흐름분석")
 try:
-    current_price = pybithumb.get_current_price(target_coin)
-    
-    # 수익률 및 평가손익 계산
-    if avg_buy_price > 0 and my_holdings > 0:
-        total_buy = avg_buy_price * my_holdings
-        total_now = current_price * my_holdings
-        profit_percent = ((current_price - avg_buy_price) / avg_buy_price) * 100
-        profit_amount = total_now - total_buy
-    else:
-        total_now, profit_percent, profit_amount = 0, 0.0, 0
+    df = pybithumb.get_ohlcv(target_coin, interval="minute1").tail(30)
+    fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
+    fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0,r=0,b=0,t=0), xaxis_rangeslider_visible=False)
+    st.plotly_chart(fig, use_container_width=True)
+except:
+    st.info("데이터를 불러오는 중입니다... 잠시만 기다려주세요.")
 
-    # 4. 상단 대시보드 (디자인 보완)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("현재 시세", f"{current_price:,} 원", f"{target_coin}")
-    with col2:
-        color = "normal" if profit_percent >= 0 else "inverse"
-        st.metric("실시간 수익률", f"{profit_percent:.2f}%", f"{profit_amount:+,} 원", delta_color=color)
-    with col3:
-        st.metric("총 평가금액", f"{total_now:,.0f} 원")
-
-    # 5. 그래프 보완 (엉성하지 않은 캔들스틱 차트)
-    st.write("---")
-    st.markdown("### 📈 마켓 트렌드 리포트")
-    df = pybithumb.get_ohlcv(target_coin, interval="minute1").tail(40)
-    
-    if df is not None:
-        fig = go.Figure(data=[go.Candlestick(
-            x=df.index, open=df['open'], high=df['high'],
-            low=df['low'], close=df['close'],
-            increasing_line_color= '#ef4444', decreasing_line_color= '#3b82f6'
-        )])
-        fig.update_layout(
-            template="plotly_dark", 
-            margin=dict(l=10, r=10, t=10, b=10),
-            height=350,
-            xaxis_rangeslider_visible=False
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("차트 데이터를 불러오는 중입니다...")
-
-except Exception as e:
-    st.error(f"데이터 연결 중 잠시 지연이 발생했습니다. 1~2초 후 새로고침 해주세요! (사유: {e})")
-
-st.sidebar.write("---")
-st.sidebar.info("Abisso 비즈니스 엔진 최적화 모드 가동 중")
+# 7. 하단 안내 (비즈니스 모드)
+st.caption("본 앱은 실전 테스트용이며, 모든 데이터는 빗썸 시세를 기준으로 합니다.")
