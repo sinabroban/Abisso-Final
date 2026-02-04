@@ -4,132 +4,104 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# 1. 화면 설정 (여백 제거 및 모바일 뷰 최적화)
-st.set_page_config(page_title="ABISSO PRO", layout="wide")
+# 1. 페이지 및 친절한 테마 설정
+st.set_page_config(page_title="Abisso Guide", layout="centered") # 집중을 위해 중앙 정렬
 
-# 2. [핵심] 상업용 앱 느낌을 내기 위한 CSS 강제 주입
-# 스트림릿의 못생긴 기본 디자인을 다 가리고 커스텀 디자인을 입힙니다.
+# CSS: 가독성과 친절함을 위한 스타일
 st.markdown("""
     <style>
-    /* 전체 배경 블랙 */
-    .stApp { background-color: #000000 !important; }
-    
-    /* 상단 헤더 숨기기 (앱처럼 보이게) */
-    header { visibility: hidden; }
-    
-    /* 입력칸 스타일링 */
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #1E1E1E !important;
-        border: 1px solid #333 !important;
-        color: white !important;
+    .stApp { background-color: #121212; color: #E0E0E0; }
+    .guide-box {
+        background-color: #1E1E1E;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #00C6FF;
+        margin-bottom: 20px;
     }
-    .stNumberInput input {
-        background-color: #1E1E1E !important;
-        color: #00FF88 !important; /* 형광 그린 텍스트 */
-        font-weight: bold;
-        border-radius: 8px;
-    }
-    
-    /* 메트릭 카드 디자인 (앱 위젯 느낌) */
-    div[data-testid="stMetric"] {
-        background-color: #111111;
-        border: 1px solid #333;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    div[data-testid="stMetricLabel"] { color: #888 !important; font-size: 0.8rem !important; }
-    div[data-testid="stMetricValue"] { color: #fff !important; font-size: 1.5rem !important; }
-    
-    /* 버튼 스타일 (진짜 앱 버튼처럼) */
+    .step-header { color: #00C6FF; font-weight: bold; font-size: 18px; margin-bottom: 10px; }
     .stButton>button {
-        width: 100%;
-        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%);
-        color: white;
-        border: none;
-        padding: 12px;
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 16px;
-        box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+        background: #00C6FF; color: black; font-weight: bold; width: 100%; padding: 15px;
     }
-    .stButton>button:active { transform: scale(0.98); }
+    div[data-testid="stExpander"] { background-color: #222; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 로직 처리 (실용성)
-# 오빠의 자산 상태와 목표가를 계산합니다.
-target_coin = "BTC" # 기본값
-current_p = pybithumb.get_current_price(target_coin)
-yesterday = pybithumb.get_ohlcv(target_coin).iloc[-2]
-target_p = yesterday['close'] + (yesterday['high'] - yesterday['low']) * 0.5
-volatility = (yesterday['high'] - yesterday['low']) / yesterday['open'] * 100
+st.title("💁‍♂️ ABISSO 이지 트레이딩")
+st.write("반갑습니다. 처음 오셨나요? 아래 순서대로만 따라오시면 자동으로 분석해 드립니다.")
 
-# 4. UI 구성: 상단 타이틀 바 (앱 헤더)
-st.markdown(f"""
-    <div style='display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; margin-bottom: 20px;'>
-        <div style='font-size: 20px; font-weight: bold; color: white;'>ABISSO <span style='color: #0072FF; font-size: 12px;'>PRO</span></div>
-        <div style='font-size: 12px; color: #666;'>{datetime.now().strftime('%H:%M')} 기준</div>
-    </div>
-    """, unsafe_allow_html=True)
+# --- [Step 1: 종목 선택 및 추천] ---
+st.markdown("<div class='guide-box'>", unsafe_allow_html=True)
+st.markdown("<div class='step-header'>STEP 1. 어떤 코인을 볼까요?</div>", unsafe_allow_html=True)
+st.write("가장 변동성이 좋고 거래량이 많은 대장주들입니다. 하나를 골라보세요.")
 
-# 5. 자산 입력 섹션 (카드 UI)
-st.markdown("<div style='color: #888; font-size: 14px; margin-bottom: 5px;'>MY ASSETS</div>", unsafe_allow_html=True)
+selected_coin = st.selectbox("분석할 코인 선택", ["BTC (비트코인)", "ETH (이더리움)", "XRP (리플)", "SOL (솔라나)"])
+coin_ticker = selected_coin.split(" ")[0] # 코드만 추출
+
+# (오전 논의 내용: 추천 코멘트)
+curr_p = pybithumb.get_current_price(coin_ticker)
+st.caption(f"💡 현재 {coin_ticker}는 **{curr_p:,}원**에 거래되고 있습니다.")
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- [Step 2: 자산 입력 (설명 포함)] ---
+st.markdown("<div class='guide-box'>", unsafe_allow_html=True)
+st.markdown("<div class='step-header'>STEP 2. 현재 자산 상황을 알려주세요</div>", unsafe_allow_html=True)
+st.write("정확한 수익률 계산을 위해 필요합니다. (저장되지 않으니 안심하세요!)")
+
+col_input1, col_input2 = st.columns(2)
+with col_input1:
+    my_avg = st.number_input("내가 산 평균 가격 (원)", value=0, help="거래소 앱의 '평단가'를 입력하세요.")
+with col_input2:
+    my_qty = st.number_input("보유하고 있는 개수", value=0.0, format="%.4f", help="보유 수량을 정확히 적어주세요.")
+
+if my_avg > 0 and my_qty > 0:
+    profit = (curr_p - my_avg) * my_qty
+    profit_pct = ((curr_p - my_avg) / my_avg) * 100
+    color = "red" if profit > 0 else "blue"
+    st.info(f"📊 오빠님의 현재 성적표: **{profit_pct:.2f}%** ({profit:,.0f}원)")
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --- [Step 3: 전략 및 추천 (친절한 설명)] ---
+st.markdown("<div class='guide-box'>", unsafe_allow_html=True)
+st.markdown("<div class='step-header'>STEP 3. AI 매매 전략 추천</div>", unsafe_allow_html=True)
+
+# 전략 설명 (K값에 대한 친절한 해설)
+with st.expander("❓ '변동성 돌파 전략'이 뭔가요? (클릭)"):
+    st.write("""
+    어제 가격의 움직임 폭을 계산해서, 오늘 상승세가 확실할 때만 탑승하는 안전한 전략입니다.
+    - **K값**은 '진입 장벽'입니다. 
+    - 0.5가 가장 무난하며, 숫자가 클수록 더 안전할 때만 들어갑니다.
+    """)
+
+k_val = st.slider("안전성 조절 (K값)", 0.3, 1.0, 0.5, help="왼쪽으로 갈수록 공격적, 오른쪽으로 갈수록 보수적입니다.")
+
+# 로직 계산
+df = pybithumb.get_ohlcv(coin_ticker)
+yesterday = df.iloc[-2]
+range_val = yesterday['high'] - yesterday['low']
+target_price = yesterday['close'] + (range_val * k_val)
+
+st.write("---")
+st.write(f"🤖 **{coin_ticker} 분석 결과 리포트**")
+
 c1, c2 = st.columns(2)
-with c1:
-    my_avg = st.number_input("평단가(KRW)", value=0)
-with c2:
-    my_qty = st.number_input("보유수량(BTC)", value=0.0, format="%.4f")
+c1.metric("오늘의 매수 목표가", f"{target_price:,.0f}원", delta="이 가격을 넘어야 상승장입니다")
+c2.metric("현재 가격", f"{curr_p:,.0f}원")
 
-# 6. 메인 대시보드 (핵심 정보 시각화)
-st.markdown("<br>", unsafe_allow_html=True)
-col_main1, col_main2 = st.columns(2)
+# 명확한 행동 지침 (Call to Action)
+if curr_p >= target_price:
+    st.success(f"🚀 **[매수 추천]** 현재 가격이 목표가를 돌파했습니다! 상승 추세입니다.")
+else:
+    gap = target_price - curr_p
+    st.warning(f"⏳ **[관망 추천]** 아직 상승세가 부족합니다. **{gap:,.0f}원** 더 오르면 그때 들어가세요.")
 
-with col_main1:
-    # 수익률 카드
-    if my_avg > 0 and my_qty > 0:
-        profit_pct = ((current_p - my_avg) / my_avg) * 100
-        color = "#FF4B4B" if profit_pct < 0 else "#00FF88" # 마이너스면 빨강, 플러스면 형광초록
-        st.metric("수익률", f"{profit_pct:.2f}%")
-    else:
-        st.metric("수익률", "0.00%")
+st.markdown("</div>", unsafe_allow_html=True)
 
-with col_main2:
-    # 현재가 카드
-    st.metric(f"{target_coin} 현재가", f"{current_p:,}")
-
-# 7. 트레이딩 신호 (실용적 기능)
-signal_color = "#00FF88" if current_p >= target_p else "#444"
-signal_text = "매수 체결 구간 진입" if current_p >= target_p else "진입 대기 중..."
-
-st.markdown(f"""
-    <div style='background-color: #161616; padding: 20px; border-radius: 12px; margin-top: 10px; border: 1px solid #333;'>
-        <div style='color: #888; font-size: 12px;'>TRADING SIGNAL</div>
-        <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 10px;'>
-            <div style='font-size: 18px; color: white; font-weight: bold;'>{signal_text}</div>
-            <div style='width: 15px; height: 15px; background-color: {signal_color}; border-radius: 50%; box-shadow: 0 0 10px {signal_color};'></div>
-        </div>
-        <div style='margin-top: 10px; font-size: 12px; color: #666;'>
-            목표 돌파가: <span style='color: #ccc;'>{target_p:,.0f}원</span> <br>
-            전일 변동성: <span style='color: #ccc;'>{volatility:.1f}%</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 8. 차트 (최소화된 깔끔한 디자인)
-st.markdown("<br>", unsafe_allow_html=True)
-df = pybithumb.get_ohlcv(target_coin, interval="minute1").tail(30)
-fig = go.Figure(data=[go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'])])
-fig.update_layout(
-    template="plotly_dark", 
-    paper_bgcolor='rgba(0,0,0,0)', 
-    plot_bgcolor='rgba(0,0,0,0)', 
-    margin=dict(l=0, r=0, t=0, b=0),
-    height=250,
-    xaxis_rangeslider_visible=False
-)
+# --- [하단: 차트 및 새로고침] ---
+st.subheader("📉 실시간 차트 확인")
+chart_df = pybithumb.get_ohlcv(coin_ticker, interval="minute1").tail(30)
+fig = go.Figure(data=[go.Candlestick(x=chart_df.index, open=chart_df['open'], high=chart_df['high'], low=chart_df['low'], close=chart_df['close'])])
+fig.update_layout(template="plotly_dark", height=300, margin=dict(l=0,r=0,t=0,b=0))
 st.plotly_chart(fig, use_container_width=True)
 
-# 9. 하단 액션 버튼
-if st.button("⚡ 엔진 데이터 새로고침"):
+if st.button("🔄 최신 분석으로 새로고침"):
     st.rerun()
