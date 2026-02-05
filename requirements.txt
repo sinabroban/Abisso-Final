@@ -5,3 +5,4 @@ plotly==5.18.0
 pyupbit==0.2.33
 pybithumb==1.0.21
 python-dotenv==1.0.0
+requests
