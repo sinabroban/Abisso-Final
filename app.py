@@ -1,5 +1,5 @@
 """
-💎 프로 트레이딩 플랫폼 v3 (Vercel 스타일 UI 개선판)
+💎 프로 트레이딩 플랫폼 v3 (가독성 및 모바일 최적화)
 핵심 전략: 볼린저 밴드 + MACD + RSI 트리플 필터
 """
 
@@ -11,98 +11,86 @@ import pybithumb
 from datetime import datetime
 import time
 
-# ==================== 페이지 설정 ====================
+# ==================== 페이지 설정 (사이드바 상태를 auto로 변경) ====================
 st.set_page_config(
     page_title="AI 트레이딩 대시보드",
     page_icon="💎",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto" # 모바일에서 접히도록 auto로 설정
 )
 
-# ==================== 사이트 외관 (가독성 강화 UI) ====================
+# ==================== 사이트 외관 (CSS 최종 보정) ====================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap');
     
-    /* 전체 폰트 및 배경 */
-    html, body, [class*="css"] {
-        font-family: 'Inter', 'Noto Sans KR', sans-serif;
+    /* 1. 상단 흰색 바 제거 및 전체 배경 블랙 강제 */
+    [data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
+        color: white !important;
     }
-    .stApp { background-color: #000000 !important; color: #ffffff !important; }
+    .stApp { 
+        background-color: #000000 !important; 
+        color: #ffffff !important; 
+    }
 
-    /* 사이드바 가독성 개선 (글자색 명확하게) */
+    /* 2. 사이드바 글자색 및 배경색 확실하게 구분 */
     [data-testid="stSidebar"] {
-        background-color: #0a0a0a !important;
-        border-right: 1px solid #222;
+        background-color: #111111 !important; /* 약간 밝은 블랙으로 구분 */
+        border-right: 1px solid #333;
     }
-    [data-testid="stSidebar"] .stMarkdown p {
-        color: #ffffff !important; /* 사이드바 텍스트 흰색으로 강제 */
-        font-weight: 500;
-    }
-    [data-testid="stSidebarNav"] { color: white !important; }
     
-    /* 사이드바 라디오 버튼 글자색 수정 */
-    div[data-testid="stSidebarUserContent"] .st-emotion-cache-16idsys p {
-        color: #eeeeee !important;
-        font-size: 1rem !important;
+    /* 사이드바 모든 텍스트를 흰색으로 */
+    [data-testid="stSidebar"] .stMarkdown p, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] span {
+        color: #ffffff !important; 
+        font-size: 1.05rem !important;
+        opacity: 1 !important;
     }
 
-    /* 대시보드 카드 스타일 */
+    /* 사이드바 라디오 버튼(메뉴) 글자색 */
+    div[data-testid="stSidebarUserContent"] .st-emotion-cache-16idsys p {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+
+    /* 3. 대시보드 카드 디자인 */
     .metric-container {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 15px;
         margin-bottom: 30px;
     }
     .metric-card {
-        background: #111;
-        border: 1px solid #222;
+        background: #1a1a1a;
+        border: 1px solid #333;
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
-    .metric-label { color: #aaaaaa; font-size: 0.9rem; margin-bottom: 8px; font-weight: 400; }
+    .metric-label { color: #bbbbbb; font-size: 0.9rem; margin-bottom: 8px; }
     .metric-value { color: #00ff41; font-size: 1.6rem; font-weight: 800; }
 
-    /* 코인 리스트 아이템 */
-    .coin-item {
-        background: #0a0a0a;
-        border-bottom: 1px solid #1a1a1a;
-        padding: 15px 10px;
-    }
-    
-    /* 신호 상태 표시 */
-    .status-badge {
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        font-weight: 700;
-    }
-    .buy-badge { background: rgba(0, 255, 65, 0.2); color: #00ff41; border: 1px solid #00ff41; }
-    .wait-badge { background: #1a1a1a; color: #888888; border: 1px solid #333; }
-    
-    /* 전략 가이드 박스 가독성 수정 (배경과 대비) */
+    /* 4. 전략 가이드 박스 (배경 대비 강화) */
     .guide-box {
-        background: #161b22; /* 살짝 더 밝은 다크블루 계열 */
-        border: 1px solid #30363d;
+        background: #1c2128; 
+        border: 1px solid #444c56;
         padding: 20px;
         border-radius: 12px;
-        color: #e6edf3 !important;
     }
-    .guide-title {
-        color: #58a6ff;
-        font-weight: 700;
-        margin-bottom: 10px;
-        font-size: 1.1rem;
-    }
-    .guide-text {
-        color: #c9d1d9 !important;
-        line-height: 1.6;
+    .guide-title { color: #58a6ff; font-weight: 700; font-size: 1.1rem; margin-bottom: 10px; }
+    .guide-text { color: #adbac7 !important; line-height: 1.6; }
+    
+    /* 코인 아이템 가독성 */
+    .coin-item {
+        background: #0d0d0d;
+        border-bottom: 1px solid #222;
+        padding: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== 전략 로직 (BB + MACD + RSI) ====================
+# ==================== 전략 로직 ====================
 def get_indicators(df):
     df['ma20'] = df['close'].rolling(20).mean()
     df['std'] = df['close'].rolling(20).std()
@@ -141,19 +129,19 @@ if 'data' not in st.session_state:
 def main():
     d = st.session_state.data
     
-    # 1. 좌측 사이드바 (한글화 및 색상 개선)
+    # 1. 좌측 사이드바
     with st.sidebar:
-        st.markdown("<h1 style='color:white;'>전문 트레이더</h1>", unsafe_allow_html=True)
-        st.markdown("---")
+        st.markdown("<h2 style='color:white; margin-top:0;'>💎 전문 트레이더</h2>", unsafe_allow_html=True)
+        st.write("") # 간격
         menu = st.radio("메뉴 이동", ["거래소 대시보드", "내 포트폴리오", "시스템 설정"])
         st.markdown("---")
-        st.subheader("시스템 제어")
+        st.markdown("<p style='color:white;'>시스템 제어</p>", unsafe_allow_html=True)
         btn_label = "🛑 시스템 정지" if d['is_active'] else "🚀 자동매매 시작"
         if st.button(btn_label, use_container_width=True, type="primary" if d['is_active'] else "secondary"):
             d['is_active'] = not d['is_active']
             st.rerun()
 
-    # 메인 헤더 (한글화)
+    # 메인 헤더
     st.title("거래 관리 대시보드")
     st.caption(f"최근 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -193,8 +181,8 @@ def main():
             
             for t in watch_list:
                 sig, price, rsi = analyze_market(t)
-                badge = "buy-badge" if sig == "매수" else "wait-badge"
                 sig_text = "매수 신호" if sig == "매수" else "감시 중"
+                badge_style = "background:rgba(0,255,65,0.2); color:#00ff41; border:1px solid #00ff41;" if sig == "매수" else "background:#1a1a1a; color:#888; border:1px solid #333;"
                 
                 st.markdown(f"""
                 <div class="coin-item">
@@ -203,7 +191,7 @@ def main():
                             <span style="font-weight:700; font-size:1.1rem; color:white;">{t}</span><br>
                             <span style="color:#888; font-size:0.85rem;">현재가: {price:,.0f}원 | RSI: {rsi:.1f}</span>
                         </div>
-                        <span class="status-badge {badge}">{sig_text}</span>
+                        <span style="padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; {badge_style}">{sig_text}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
