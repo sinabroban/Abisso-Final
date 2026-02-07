@@ -1,6 +1,6 @@
 """
-💎 프로 트레이딩 플랫폼 v3 (가독성 및 모바일 최적화)
-핵심 전략: 볼린저 밴드 + MACD + RSI 트리플 필터
+💎 암호화폐 자동매매 Pro - 실전 버전
+업비트 & 빗썸 지원 | 볼린저밴드 전략 | 실시간 모니터링
 """
 
 import streamlit as st
@@ -11,236 +11,629 @@ import pybithumb
 from datetime import datetime
 import time
 
-# ==================== 페이지 설정 (사이드바 상태를 auto로 변경) ====================
+# ==================== 페이지 설정 ====================
 st.set_page_config(
-    page_title="AI 트레이딩 대시보드",
+    page_title="💎 자동매매 Pro",
     page_icon="💎",
     layout="wide",
-    initial_sidebar_state="auto" # 모바일에서 접히도록 auto로 설정
+    initial_sidebar_state="expanded"
 )
 
-# ==================== 사이트 외관 (CSS 최종 보정) ====================
+# ==================== CSS 스타일 ====================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700&display=swap');
-    
-    /* 1. 상단 흰색 바 제거 및 전체 배경 블랙 강제 */
-    [data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0) !important;
-        color: white !important;
-    }
-    .stApp { 
-        background-color: #000000 !important; 
-        color: #ffffff !important; 
-    }
-
-    /* 2. 사이드바 글자색 및 배경색 확실하게 구분 */
-    [data-testid="stSidebar"] {
-        background-color: #111111 !important; /* 약간 밝은 블랙으로 구분 */
-        border-right: 1px solid #333;
+    /* 전체 배경 블랙 */
+    .stApp {
+        background-color: #000000;
     }
     
-    /* 사이드바 모든 텍스트를 흰색으로 */
-    [data-testid="stSidebar"] .stMarkdown p, 
-    [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] span {
-        color: #ffffff !important; 
-        font-size: 1.05rem !important;
-        opacity: 1 !important;
+    /* 모든 텍스트 흰색 */
+    * {
+        color: #FFFFFF !important;
     }
-
-    /* 사이드바 라디오 버튼(메뉴) 글자색 */
-    div[data-testid="stSidebarUserContent"] .st-emotion-cache-16idsys p {
-        color: #ffffff !important;
-        font-weight: 500 !important;
+    
+    /* 헤더 */
+    .main-header {
+        font-size: 2rem;
+        font-weight: 900;
+        text-align: center;
+        margin: 1rem 0;
+        color: #00ff41 !important;
     }
-
-    /* 3. 대시보드 카드 디자인 */
-    .metric-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 15px;
-        margin-bottom: 30px;
+    
+    /* 상태 카드 */
+    .status-card {
+        background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 0.5rem 0;
+        text-align: center;
     }
-    .metric-card {
+    
+    .status-label {
+        font-size: 0.85rem;
+        color: #888 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .status-value {
+        font-size: 1.8rem;
+        font-weight: 900;
+        color: #FFFFFF !important;
+    }
+    
+    .status-value.profit {
+        color: #00ff41 !important;
+    }
+    
+    .status-value.loss {
+        color: #ff0040 !important;
+    }
+    
+    /* 코인 카드 */
+    .coin-card {
         background: #1a1a1a;
         border: 1px solid #333;
-        padding: 20px;
-        border-radius: 12px;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        transition: all 0.2s;
     }
-    .metric-label { color: #bbbbbb; font-size: 0.9rem; margin-bottom: 8px; }
-    .metric-value { color: #00ff41; font-size: 1.6rem; font-weight: 800; }
-
-    /* 4. 전략 가이드 박스 (배경 대비 강화) */
-    .guide-box {
-        background: #1c2128; 
-        border: 1px solid #444c56;
-        padding: 20px;
-        border-radius: 12px;
-    }
-    .guide-title { color: #58a6ff; font-weight: 700; font-size: 1.1rem; margin-bottom: 10px; }
-    .guide-text { color: #adbac7 !important; line-height: 1.6; }
     
-    /* 코인 아이템 가독성 */
-    .coin-item {
-        background: #0d0d0d;
-        border-bottom: 1px solid #222;
-        padding: 15px;
+    .coin-card:hover {
+        border-color: #00ff41;
+        transform: translateY(-2px);
+    }
+    
+    .coin-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #FFFFFF !important;
+    }
+    
+    .coin-price {
+        font-size: 1rem;
+        color: #888 !important;
+    }
+    
+    .signal-badge {
+        display: inline-block;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-top: 0.5rem;
+    }
+    
+    .badge-buy {
+        background: #00ff41;
+        color: #000000 !important;
+    }
+    
+    .badge-wait {
+        background: #666;
+        color: #FFFFFF !important;
+    }
+    
+    /* 포지션 카드 */
+    .position-card {
+        background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+        border: 1px solid #333;
+        border-left: 4px solid #00ff41;
+        border-radius: 8px;
+        padding: 1.2rem;
+        margin: 0.8rem 0;
+    }
+    
+    .position-card.loss {
+        border-left-color: #ff0040;
+    }
+    
+    .position-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid #333;
+    }
+    
+    .position-name {
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: #FFFFFF !important;
+    }
+    
+    .position-profit {
+        font-size: 1.3rem;
+        font-weight: 900;
+    }
+    
+    .position-detail {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.4rem 0;
+        font-size: 0.95rem;
+    }
+    
+    .detail-label {
+        color: #888 !important;
+    }
+    
+    .detail-value {
+        color: #FFFFFF !important;
+        font-weight: 700;
+    }
+    
+    /* 버튼 */
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        font-weight: 700;
+        min-height: 48px;
+    }
+    
+    /* 사이드바 */
+    [data-testid="stSidebar"] {
+        background-color: #0d0d0d;
+    }
+    
+    /* 입력 필드 */
+    .stNumberInput>div>div>input {
+        background-color: #1a1a1a !important;
+        color: #FFFFFF !important;
+        border: 1px solid #333 !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+    }
+    
+    .stSelectbox>div>div {
+        background-color: #1a1a1a !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* 탭 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1a1a1a;
+        border-radius: 8px;
+        padding: 0.8rem 1.5rem;
+        font-weight: 700;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #00ff41;
+        color: #000000 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== 전략 로직 ====================
-def get_indicators(df):
-    df['ma20'] = df['close'].rolling(20).mean()
-    df['std'] = df['close'].rolling(20).std()
-    df['lower'] = df['ma20'] - (df['std'] * 2)
-    diff = df['close'].diff()
-    u, d = diff.copy(), diff.copy()
-    u[u<0]=0; d[d>0]=0
-    df['rsi'] = 100 - (100/(1+(u.rolling(14).mean()/abs(d.rolling(14).mean()))))
-    df['m'] = df['close'].ewm(12).mean() - df['close'].ewm(26).mean()
-    df['s'] = df['m'].ewm(9).mean()
+# ==================== 세션 상태 초기화 ====================
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.exchange = 'upbit'
+    st.session_state.total_balance = 1000000
+    st.session_state.per_trade = 100000
+    st.session_state.positions = {}
+    st.session_state.is_running = False
+    st.session_state.selected_coins = []
+
+# ==================== 기술적 분석 함수 ====================
+def calculate_bollinger_bands(df, period=20):
+    """볼린저 밴드 계산"""
+    df['ma'] = df['close'].rolling(period).mean()
+    df['std'] = df['close'].rolling(period).std()
+    df['upper'] = df['ma'] + (df['std'] * 2)
+    df['lower'] = df['ma'] - (df['std'] * 2)
     return df
 
-def analyze_market(ticker):
+def calculate_rsi(df, period=14):
+    """RSI 계산"""
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    df['rsi'] = 100 - (100 / (1 + rs))
+    return df
+
+def get_signal(ticker, exchange):
+    """매매 신호 생성 - 볼린저밴드 + RSI 전략"""
     try:
-        df = pyupbit.get_ohlcv(ticker, interval="minute15", count=40)
-        df = get_indicators(df)
-        c, p = df.iloc[-1], df.iloc[-2]
-        is_low = c['close'] < c['ma20']
-        is_rsi_buy = c['rsi'] < 45
-        is_macd_cross = (p['m'] < p['s']) and (c['m'] > c['s'])
-        if (is_rsi_buy or is_macd_cross) and is_low:
-            return "매수", c['close'], c['rsi']
-        return "대기", c['close'], c['rsi']
-    except: return "에러", 0, 0
-
-# ==================== 데이터 초기화 ====================
-if 'data' not in st.session_state:
-    st.session_state.data = {
-        'total': 10000000.0,
-        'invested': 0.0,
-        'holdings': {},
-        'is_active': False
-    }
-
-# ==================== 메인 화면 구성 ====================
-def main():
-    d = st.session_state.data
-    
-    # 1. 좌측 사이드바
-    with st.sidebar:
-        st.markdown("<h2 style='color:white; margin-top:0;'>💎 전문 트레이더</h2>", unsafe_allow_html=True)
-        st.write("") # 간격
-        menu = st.radio("메뉴 이동", ["거래소 대시보드", "내 포트폴리오", "시스템 설정"])
-        st.markdown("---")
-        st.markdown("<p style='color:white;'>시스템 제어</p>", unsafe_allow_html=True)
-        btn_label = "🛑 시스템 정지" if d['is_active'] else "🚀 자동매매 시작"
-        if st.button(btn_label, use_container_width=True, type="primary" if d['is_active'] else "secondary"):
-            d['is_active'] = not d['is_active']
-            st.rerun()
-
-    # 메인 헤더
-    st.title("거래 관리 대시보드")
-    st.caption(f"최근 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # 2. 상단 대시보드 카드
-    total_val = (d['total'] - d['invested']) + sum([h['inv'] for h in d['holdings'].values()])
-    
-    st.markdown(f"""
-    <div class="metric-container">
-        <div class="metric-card">
-            <div class="metric-label">총 평가 자산</div>
-            <div class="metric-value">{total_val:,.0f}원</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">투자 중인 금액</div>
-            <div class="metric-value" style="color:#ffffff;">{d['invested']:,.0f}원</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">적용 전략</div>
-            <div class="metric-value" style="color:#00ff41; font-size:1.1rem;">볼린저밴드 + RSI + MACD</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">시스템 상태</div>
-            <div class="metric-value" style="color:{'#00ff41' if d['is_active'] else '#ff4b4b'}; font-size:1.1rem;">
-                {'● 가동 중' if d['is_active'] else '○ 정지 상태'}
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # 3. 중앙 본문
-    if menu == "거래소 대시보드":
-        col1, col2 = st.columns([2, 1])
+        # 데이터 가져오기
+        if exchange == 'upbit':
+            df = pyupbit.get_ohlcv(ticker, interval="minute15", count=40)
+        else:
+            coin = ticker.split('-')[1] if '-' in ticker else ticker
+            df = pybithumb.get_ohlcv(coin)
+            if df is not None:
+                df = df.tail(40)
         
+        if df is None or len(df) < 40:
+            return "대기", 0
+        
+        # 지표 계산
+        df = calculate_bollinger_bands(df)
+        df = calculate_rsi(df)
+        
+        current = df.iloc[-1]
+        prev = df.iloc[-2]
+        
+        # 매수 신호: 가격이 하단 밴드 근처 + RSI 과매도
+        if current['close'] <= current['lower'] * 1.02 and current['rsi'] < 40:
+            return "매수", current['rsi']
+        
+        return "대기", current['rsi']
+        
+    except Exception as e:
+        return "대기", 0
+
+# ==================== 빠른 코인 로딩 ====================
+@st.cache_data(ttl=30, show_spinner=False)
+def get_top_coins(exchange):
+    """인기 코인 목록 (30초 캐시)"""
+    try:
+        if exchange == 'upbit':
+            tickers = ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-ADA', 'KRW-DOGE',
+                      'KRW-SOL', 'KRW-DOT', 'KRW-MATIC', 'KRW-AVAX', 'KRW-LINK']
+            coins = []
+            for ticker in tickers:
+                try:
+                    price = pyupbit.get_current_price(ticker)
+                    if not price:
+                        continue
+                    
+                    signal, rsi = get_signal(ticker, exchange)
+                    
+                    coins.append({
+                        'ticker': ticker,
+                        'name': ticker.split('-')[1],
+                        'price': price,
+                        'signal': signal,
+                        'rsi': rsi
+                    })
+                except:
+                    continue
+            return coins
+        else:
+            # 빗썸
+            tickers = ['BTC', 'ETH', 'XRP', 'ADA', 'DOGE', 'SOL']
+            coins = []
+            for ticker in tickers:
+                try:
+                    price = pybithumb.get_current_price(ticker)
+                    if not price:
+                        continue
+                    
+                    signal, rsi = get_signal(f'KRW-{ticker}', exchange)
+                    
+                    coins.append({
+                        'ticker': f'KRW-{ticker}',
+                        'name': ticker,
+                        'price': price,
+                        'signal': signal,
+                        'rsi': rsi
+                    })
+                except:
+                    continue
+            return coins
+    except:
+        return []
+
+def get_korean_name(symbol):
+    """한글 이름"""
+    names = {
+        'BTC': '비트코인', 'ETH': '이더리움', 'XRP': '리플',
+        'ADA': '에이다', 'DOGE': '도지코인', 'SOL': '솔라나',
+        'DOT': '폴카닷', 'MATIC': '폴리곤', 'AVAX': '아발란체',
+        'LINK': '체인링크'
+    }
+    return names.get(symbol, symbol)
+
+# ==================== 메인 앱 ====================
+def main():
+    
+    # 헤더
+    st.markdown('<h1 class="main-header">💎 자동매매 Pro</h1>', unsafe_allow_html=True)
+    
+    # 사이드바
+    with st.sidebar:
+        st.markdown("### ⚙️ 기본 설정")
+        
+        # 거래소 선택
+        exchange = st.selectbox(
+            "거래소",
+            ["upbit", "bithumb"],
+            format_func=lambda x: "🟦 업비트" if x == "upbit" else "🟨 빗썸",
+            key="exchange_select"
+        )
+        st.session_state.exchange = exchange
+        
+        st.divider()
+        
+        # 자금 설정
+        st.markdown("### 💰 투자 설정")
+        
+        total = st.number_input(
+            "총 보유 현금 (원)",
+            min_value=0,
+            value=st.session_state.total_balance,
+            step=100000,
+            format="%d"
+        )
+        st.session_state.total_balance = total
+        
+        per_trade = st.number_input(
+            "코인당 투자금 (원)",
+            min_value=10000,
+            max_value=total if total > 0 else 10000000,
+            value=min(st.session_state.per_trade, total) if total > 0 else 100000,
+            step=10000,
+            format="%d"
+        )
+        st.session_state.per_trade = per_trade
+        
+        # 투자 현황
+        invested = sum([p['invested'] for p in st.session_state.positions.values()])
+        available = total - invested
+        
+        st.info(f"""
+        **투자 현황**
+        - 투자 중: {invested:,.0f}원
+        - 사용 가능: {available:,.0f}원
+        """)
+        
+        st.divider()
+        
+        # 자동매매 제어
+        st.markdown("### 🤖 자동매매")
+        
+        if st.session_state.is_running:
+            if st.button("⏸️ 중지", use_container_width=True, type="secondary"):
+                st.session_state.is_running = False
+                st.rerun()
+        else:
+            if st.button("▶️ 시작", use_container_width=True, type="primary"):
+                if not st.session_state.selected_coins:
+                    st.error("코인을 먼저 선택하세요!")
+                elif total == 0:
+                    st.error("총 보유 현금을 입력하세요!")
+                else:
+                    st.session_state.is_running = True
+                    st.success("자동매매 시작!")
+                    st.rerun()
+        
+        # 전략 설명
+        st.divider()
+        st.markdown("### 📊 적용 전략")
+        st.info("""
+        **볼린저밴드 + RSI 전략**
+        
+        **매수 조건:**
+        - 가격이 하단 밴드 근처
+        - RSI < 40 (과매도)
+        
+        **자동 손익:**
+        - 손절: -3%
+        - 익절: +5%
+        """)
+    
+    # 메인 영역
+    tab1, tab2, tab3 = st.tabs(["💰 코인 선택", "📊 포지션", "📈 거래 내역"])
+    
+    with tab1:
+        st.markdown("### 💰 거래할 코인 선택")
+        
+        col1, col2 = st.columns([3, 1])
         with col1:
-            st.subheader("실시간 시장 분석")
-            watch_list = ["KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-DOGE"]
+            st.info(f"💡 선택한 코인당 **{st.session_state.per_trade:,}원**씩 자동 투자")
+        with col2:
+            if st.button("🔄 새로고침", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+        
+        # 코인 로딩
+        coins = get_top_coins(st.session_state.exchange)
+        
+        if not coins:
+            st.error("코인 정보를 불러올 수 없습니다")
+            return
+        
+        # 코인 표시
+        for coin in coins:
+            is_selected = coin['ticker'] in st.session_state.selected_coins
             
-            for t in watch_list:
-                sig, price, rsi = analyze_market(t)
-                sig_text = "매수 신호" if sig == "매수" else "감시 중"
-                badge_style = "background:rgba(0,255,65,0.2); color:#00ff41; border:1px solid #00ff41;" if sig == "매수" else "background:#1a1a1a; color:#888; border:1px solid #333;"
+            col1, col2, col3 = st.columns([3, 2, 1])
+            
+            with col1:
+                badge_class = "badge-buy" if coin['signal'] == "매수" else "badge-wait"
+                badge_text = "🟢 매수 신호" if coin['signal'] == "매수" else "⚪ 대기"
                 
                 st.markdown(f"""
-                <div class="coin-item">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <span style="font-weight:700; font-size:1.1rem; color:white;">{t}</span><br>
-                            <span style="color:#888; font-size:0.85rem;">현재가: {price:,.0f}원 | RSI: {rsi:.1f}</span>
-                        </div>
-                        <span style="padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; {badge_style}">{sig_text}</span>
+                <div class="coin-card">
+                    <div class="coin-name">{coin['name']} <span style="color:#888;font-size:0.9rem;">{get_korean_name(coin['name'])}</span></div>
+                    <div class="coin-price">₩{coin['price']:,.0f}</div>
+                    <div style="margin-top:0.5rem;">
+                        <span class="signal-badge {badge_class}">{badge_text}</span>
+                        <span style="color:#888;font-size:0.85rem;margin-left:0.5rem;">RSI: {coin['rsi']:.0f}</span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+            
+            with col2:
+                st.write("")
+                st.write("")
+                if is_selected:
+                    st.success("✓ 선택됨")
+            
+            with col3:
+                st.write("")
+                st.write("")
+                if st.button("선택" if not is_selected else "취소", key=f"sel_{coin['ticker']}", use_container_width=True):
+                    if is_selected:
+                        st.session_state.selected_coins.remove(coin['ticker'])
+                    else:
+                        st.session_state.selected_coins.append(coin['ticker'])
+                    st.rerun()
+        
+        # 선택된 코인
+        if st.session_state.selected_coins:
+            st.divider()
+            st.markdown("### ✅ 선택된 코인")
+            selected = [c for c in coins if c['ticker'] in st.session_state.selected_coins]
+            for c in selected:
+                st.markdown(f"- **{c['name']}** {get_korean_name(c['name'])} → {st.session_state.per_trade:,}원 투자 예정")
+            
+            total_need = len(selected) * st.session_state.per_trade
+            if total_need > available:
+                st.error(f"❌ 자금 부족! (필요: {total_need:,}원, 가능: {available:,}원)")
+            else:
+                st.success(f"✅ 총 {len(selected)}개 코인, {total_need:,}원 투자 준비 완료")
+    
+    with tab2:
+        st.markdown("### 📊 보유 포지션")
+        
+        if st.session_state.positions:
+            for coin_name, pos in st.session_state.positions.items():
+                # 현재가 업데이트
+                try:
+                    if st.session_state.exchange == 'upbit':
+                        current_price = pyupbit.get_current_price(pos['ticker'])
+                    else:
+                        ticker = pos['ticker'].split('-')[1]
+                        current_price = pybithumb.get_current_price(ticker)
+                    
+                    if current_price:
+                        pos['current_price'] = current_price
+                        pos['current_value'] = pos['quantity'] * current_price
+                        pos['profit'] = pos['current_value'] - pos['invested']
+                except:
+                    pass
                 
-                if d['is_active'] and sig == "매수" and t not in d['holdings']:
-                    d['holdings'][t] = {'buy': price, 'inv': 1000000.0}
-                    d['invested'] += 1000000.0
-
-        with col2:
-            st.subheader("전략 가이드")
-            st.markdown("""
-            <div class="guide-box">
-                <div class="guide-title">트리플 확인 전략</div>
-                <div class="guide-text">
-                    1. <b>볼린저밴드 하단</b>: 가격이 통계적 저점에 도달했는가?<br><br>
-                    2. <b>RSI 45 미만</b>: 시장이 충분히 과매도되었는가?<br><br>
-                    3. <b>MACD 골든크로스</b>: 단기 상승 추세가 시작되었는가?
+                profit_pct = (pos['profit'] / pos['invested']) * 100
+                profit_class = "profit" if pos['profit'] >= 0 else "loss"
+                card_class = "position-card" if pos['profit'] >= 0 else "position-card loss"
+                
+                st.markdown(f"""
+                <div class="{card_class}">
+                    <div class="position-header">
+                        <div class="position-name">{coin_name} <span style="color:#888;font-size:0.9rem;">{get_korean_name(coin_name)}</span></div>
+                        <div class="position-profit {profit_class}">{pos['profit']:+,.0f}원 ({profit_pct:+.2f}%)</div>
+                    </div>
+                    <div class="position-detail">
+                        <span class="detail-label">매수가</span>
+                        <span class="detail-value">₩{pos['buy_price']:,.0f}</span>
+                    </div>
+                    <div class="position-detail">
+                        <span class="detail-label">현재가</span>
+                        <span class="detail-value">₩{pos['current_price']:,.0f}</span>
+                    </div>
+                    <div class="position-detail">
+                        <span class="detail-label">보유 수량</span>
+                        <span class="detail-value">{pos['quantity']:.8f}</span>
+                    </div>
+                    <div class="position-detail">
+                        <span class="detail-label">투자금</span>
+                        <span class="detail-value">₩{pos['invested']:,.0f}</span>
+                    </div>
+                    <div class="position-detail">
+                        <span class="detail-label">평가금</span>
+                        <span class="detail-value">₩{pos['current_value']:,.0f}</span>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    elif menu == "내 포트폴리오":
-        st.subheader("보유 자산 상세")
-        if not d['holdings']:
-            st.info("현재 보유 중인 종목이 없습니다.")
-        for t, h in d['holdings'].items():
-            curr = pyupbit.get_current_price(t)
-            profit = ((curr - h['buy']) / h['buy']) * 100
-            st.markdown(f"""
-            <div class="metric-card" style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between;">
-                    <b style="color:white;">{t}</b>
-                    <span style="color:{'#00ff41' if profit>=0 else '#ff4b4b'}">{profit:+.2f}%</span>
-                </div>
-                <div style="font-size:0.85rem; color:#888;">매수가: {h['buy']:,.0f} | 현재가: {curr:,.0f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    elif menu == "시스템 설정":
-        st.subheader("운용 설정")
-        d['total'] = st.number_input("시드 머니 설정 (원)", value=int(d['total']), step=1000000)
-        if st.button("투자 데이터 초기화", use_container_width=True):
-            d.update({'holdings': {}, 'invested': 0.0})
-            st.rerun()
-
-    # 자동 갱신
-    if d['is_active']:
-        time.sleep(10)
-        st.rerun()
+                """, unsafe_allow_html=True)
+        else:
+            st.info("보유 중인 포지션이 없습니다")
+    
+    with tab3:
+        st.markdown("### 📈 거래 내역")
+        st.info("거래 내역 기능은 추후 업데이트됩니다")
+    
+    # 상태 표시
+    col1, col2, col3, col4 = st.columns(4)
+    
+    total_value = st.session_state.total_balance - invested + sum([p['current_value'] for p in st.session_state.positions.values()])
+    total_profit = sum([p['profit'] for p in st.session_state.positions.values()])
+    profit_pct = (total_profit / invested * 100) if invested > 0 else 0
+    
+    with col1:
+        st.markdown(f"""
+        <div class="status-card">
+            <div class="status-label">총 자산</div>
+            <div class="status-value">₩{total_value:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        profit_class = "profit" if total_profit >= 0 else "loss"
+        st.markdown(f"""
+        <div class="status-card">
+            <div class="status-label">평가 손익</div>
+            <div class="status-value {profit_class}">{total_profit:+,.0f}원</div>
+            <div class="status-label">{profit_pct:+.2f}%</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="status-card">
+            <div class="status-label">투자 중</div>
+            <div class="status-value">₩{invested:,.0f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        status_text = "🟢 실행 중" if st.session_state.is_running else "⚪ 중지됨"
+        st.markdown(f"""
+        <div class="status-card">
+            <div class="status-label">상태</div>
+            <div class="status-value" style="font-size:1.2rem;">{status_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # 자동매매 로직 (시뮬레이션)
+    if st.session_state.is_running and st.session_state.selected_coins:
+        # 선택된 코인 중 매수 신호 있는 것 매수
+        for ticker in st.session_state.selected_coins:
+            coin_name = ticker.split('-')[1]
+            
+            # 이미 보유 중이면 스킵
+            if coin_name in st.session_state.positions:
+                continue
+            
+            # 매수 신호 확인
+            signal, rsi = get_signal(ticker, st.session_state.exchange)
+            
+            if signal == "매수":
+                # 현재가 가져오기
+                try:
+                    if st.session_state.exchange == 'upbit':
+                        price = pyupbit.get_current_price(ticker)
+                    else:
+                        price = pybithumb.get_current_price(coin_name)
+                    
+                    if price and st.session_state.per_trade > 0:
+                        quantity = st.session_state.per_trade / price
+                        
+                        # 포지션 생성
+                        st.session_state.positions[coin_name] = {
+                            'ticker': ticker,
+                            'buy_price': price,
+                            'current_price': price,
+                            'quantity': quantity,
+                            'invested': st.session_state.per_trade,
+                            'current_value': st.session_state.per_trade,
+                            'profit': 0
+                        }
+                        
+                        st.success(f"✅ {coin_name} 매수 완료! (₩{price:,.0f})")
+                        time.sleep(1)
+                        st.rerun()
+                except:
+                    pass
 
 if __name__ == "__main__":
     main()
